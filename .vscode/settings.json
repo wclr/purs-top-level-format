@@ -1,0 +1,12 @@
+{
+  // "autoSaveExt": {
+  //   "extensions": [".purs"]
+  // },
+  "purescript.addNpmPath": true,
+  "purescript.buildCommand": "spago build --purs-args --json-errors",
+  "purescript.censorWarnings": [
+    // "ImplicitImport",
+    //"UnusedImport",
+    //"UnusedExplicitImport"
+  ]
+}

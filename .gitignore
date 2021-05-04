@@ -1,0 +1,9 @@
+node_modules
+output
+.spago
+
+.psc*
+.purs*
+
+index.js
+

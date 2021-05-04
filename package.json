@@ -1,0 +1,29 @@
+{
+  "name": "purs-top-level-format",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "files": [
+    "src",
+    "*.dhall",
+    "output/*/*.js",
+    "index.js",
+    "bin.js"
+  ],
+  "bin": {
+    "purs-format": "index.js"
+  },
+  "scripts": {
+    "build": "rm -rf output && pnpx spago build",
+    "dev": "echo module.exports = require('./output/Text.Formatting.Purs.TopLevel') > index.js",
+    "bundle": "spago bundle-app --m Text.Formatting.Purs.TopLevel --to index.js",    
+    "test": "spago run -m Test.Main"
+  },
+  "author": "wclr",
+  "license": "ISC",
+  "devDependencies": {
+    "node-dev": "^6.4.0",
+    "purescript": "^0.14.0",
+    "spago": "^0.19.1"
+  }
+}
