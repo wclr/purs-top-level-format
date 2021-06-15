@@ -1,5 +1,6 @@
 module Test.Main where
 
+
 import Prelude
 
 import Data.String (Pattern(..), Replacement(..), joinWith, replaceAll, trim)
@@ -9,16 +10,31 @@ import Test.Spec (describe, it)
 import Test.Spec.Assertions (shouldEqual)
 import Test.Spec.Reporter.Console (consoleReporter)
 import Test.Spec.Runner (runSpec)
-import Text.Formatting.Purs.TopLevel (formatDefault, adjustIndentDefault)
+import TopLevel (formatDefault, adjustIndentDefault)
 
 
+
+-- some orphan
+-- comment
+
+
+
+{-
+  Orphan multi-line comment
+ -}
+
+
+-- docs comment
 typesTogether :: Array String
 typesTogether =
   [ "type X = String"
+
   , "type Y = String"
   ]
+-- close to the end comment
 
 
+{- docs comment -}
 indentOrgText :: String
 indentOrgText = """
 x =

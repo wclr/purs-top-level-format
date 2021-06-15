@@ -1,4 +1,4 @@
-module Text.Formatting.Purs.TopLevel
+module TopLevel
   (formatDefault, adjustIndentDefault, defaultRules, format, main
   ) where
 
@@ -186,6 +186,12 @@ isCommentEnd cl = case cl of
   _ -> false
 
 
+isMultiCommentEnd :: CodeLine -> Boolean
+isMultiCommentEnd cl = case cl of
+  MultiLineCommentEnd _ -> true
+  _ -> false
+
+
 isSingleComment :: CodeLine -> Boolean
 isSingleComment cl = case cl of
   SingleLineComment _ -> true
@@ -214,6 +220,16 @@ spaces :: Int -> String
 spaces n = S.joinWith "" $ replicate n " "
 
 
+getNextNonMultiCommentLine :: FormatState -> Maybe CodeLine
+getNextNonMultiCommentLine { codeLines, index, isCommented } =
+  join $ commentEnd <#> (\found -> Array.index codeLines (found.index + 1) )
+  where
+  commentEnd =
+    (flip findWithIndex)
+      codeLines
+        \i codeL -> i > index && (isMultiCommentEnd codeL)
+
+
 getNextNonCommentLine :: FormatState -> Maybe CodeLine
 getNextNonCommentLine { codeLines, index, isCommented } =
   res <#> (\found -> found.value)
@@ -224,14 +240,31 @@ getNextNonCommentLine { codeLines, index, isCommented } =
         \i codeL -> i > index && not (isSingleComment codeL)
 
 
+isNextNonCommentLineEmpty :: FormatState -> Boolean
+isNextNonCommentLineEmpty st =
+  case getNextNonCommentLine st of
+    Nothing -> true
+    Just Empty -> true
+    _ -> false
+
+
+isNextNonMultiCommentLineEmpty :: FormatState -> Boolean
+isNextNonMultiCommentLineEmpty st =
+  case getNextNonMultiCommentLine st of
+    Nothing -> true
+    Just Empty -> true
+    _ -> false
+
+
 getNextLine :: FormatState -> Maybe CodeLine
 getNextLine { codeLines, index } = Array.index codeLines (index + 1)
 
 
-isNextLineEmpty :: FormatState -> Boolean
-isNextLineEmpty state = case getNextLine state of
-  Just codeL -> codeL == Empty
-  Nothing -> true
+
+-- isNextLineEmpty :: FormatState -> Boolean
+-- isNextLineEmpty state = case getNextLine state of
+--   Just codeL -> codeL == Empty
+--   Nothing -> true
 
 
 foldFormat :: FormatState -> CodeLine -> FormatState
@@ -251,15 +284,7 @@ foldFormat state codeL =
       isPrevImport = isQualifiedImport prevLine || isOpenImport prevLine
       isPrevEmpty = (prevLine == Empty)
 
-      -- nextNonComment = case isSingleComment codeL of
-      --   true -> fromMaybe codeL (getNextNonCommentLine state)
-      --   false -> Empty
-
-      -- nextNonComment = case isSingleComment codeL of
-      --   true -> fromMaybe codeL (getNextNonCommentLine state)
-      --   false -> Empty
-
-      commentAdd = if isPrevImport then max 2 (min 3 state.blanks) else 2
+      commentAdd = if isPrevImport then max 2 (min 3 blanks) else 2
 
       addBefore =
         if state.isCommented || state.isMultiLineStr then
@@ -278,17 +303,20 @@ foldFormat state codeL =
             if isPrevEmpty then 0 else commentAdd
 
           SingleLineComment _
-            | ((prevLine # isSingleComment) || isPrevEmpty) && isPrevOneLine -> 0
-            -- for orphan single comment line force 3 lines above
-            | (state.blanks > 0 && isNextLineEmpty state) -> 3
-            -- allow to have one or tree, later should analyze next lines
-            | state.blanks == 1 -> 1
-            | state.blanks == 3 -> 3
+            | isPrevOneLine -> 0
+
+            -- for orphan comments line force 3 lines above
+            | (blanks > 0 && isNextNonCommentLineEmpty state) -> 3
+
+            -- allow close comments without spacing
+            | (blanks == 0 && isNextNonCommentLineEmpty state) -> 0
+
             | otherwise -> commentAdd
 
           MultiLineCommentStart _
             | isPrevEmpty -> 0
-            | isPrevImport -> state.blanks
+            | (blanks > 0 && isNextNonMultiCommentLineEmpty state) -> 3
+            -- | isPrevImport -> state.blanks
             | otherwise -> 2
 
           Type _ ->
@@ -298,10 +326,10 @@ foldFormat state codeL =
             if isPrevOneLine || isPrevCommentEnd unit then 0 else 2
 
           Fun _ ->
-            if sameId || isPrevCommentEnd unit then 0 else 2
+            if sameId || (isPrevCommentEnd unit && blanks == 0) then 0 else 2
 
           NonTop _ ->
-            min state.blanks 1
+            min blanks 1
 
           Empty -> 0
           _ -> 0
@@ -332,6 +360,7 @@ foldFormat state codeL =
     where
       nextIndex = state.index + 1
       str = getCodeLineStr codeL
+      blanks = state.blanks
       --codeL = getCodeLine str
 
 
