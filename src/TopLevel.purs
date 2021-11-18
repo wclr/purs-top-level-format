@@ -141,6 +141,16 @@ getCodeLine str
   | otherwise = NonTop str
 
 
+isFunTypeDecl :: CodeLine -> Boolean
+isFunTypeDecl line =
+  case line of
+    Fun str ->
+      R.test (unsafeRegex "^[\\S]+\\s?(::|∷)" noFlags) str
+
+    _ ->
+      false
+
+
 type FormatState =
   { result :: Array String
   , hasImportOpen :: Boolean
@@ -177,6 +187,13 @@ getTopIdentifier cl = case cl of
   Fun str -> Just $ S.joinWith " " $ take 1 (S.split (Pattern " ") str)
   Type str -> Just $ S.joinWith " " $ take 2 (S.split (Pattern " ") str)
   _ -> Nothing
+
+
+isFun :: CodeLine -> Boolean
+isFun =
+  case _ of
+    Fun _ -> true
+    _ -> false
 
 
 isCommentEnd :: CodeLine -> Boolean
@@ -218,10 +235,8 @@ hasMultiLineQuotes =
 
 spaces :: Int -> String
 spaces n = S.joinWith "" $ replicate n " "
-
-
 getNextNonMultiCommentLine :: FormatState -> Maybe CodeLine
-getNextNonMultiCommentLine { codeLines, index, isCommented } =
+getNextNonMultiCommentLine { codeLines, index } =
   join $ commentEnd <#> (\found -> Array.index codeLines (found.index + 1) )
   where
   commentEnd =
@@ -231,7 +246,7 @@ getNextNonMultiCommentLine { codeLines, index, isCommented } =
 
 
 getNextNonCommentLine :: FormatState -> Maybe CodeLine
-getNextNonCommentLine { codeLines, index, isCommented } =
+getNextNonCommentLine { codeLines, index } =
   res <#> (\found -> found.value)
   where
   res =
@@ -257,7 +272,8 @@ isNextNonMultiCommentLineEmpty st =
 
 
 getNextLine :: FormatState -> Maybe CodeLine
-getNextLine { codeLines, index } = Array.index codeLines (index + 1)
+getNextLine { codeLines, index } =
+  Array.index codeLines (index + 1)
 
 
 
@@ -326,7 +342,13 @@ foldFormat state codeL =
             if isPrevOneLine || isPrevCommentEnd unit then 0 else 2
 
           Fun _ ->
-            if sameId || (isPrevCommentEnd unit && blanks == 0) then 0 else 2
+            if sameId
+              -- allow squash one line value decl (e.g., constants)
+              || (blanks == 0 && isFun prevLine && not isFunTypeDecl codeL)
+              || (isPrevCommentEnd unit && blanks == 0) then
+              0
+            else
+              2
 
           NonTop _ ->
             min blanks 1
@@ -364,16 +386,16 @@ foldFormat state codeL =
       --codeL = getCodeLine str
 
 
+
+-- INDENTATION ADJUSTMENT (NOT IMPLEMENTED)
+
+
 type IndentOptions
   = {}
 
 
 indentDefaultOptions :: IndentOptions
 indentDefaultOptions = {}
-
-
-adjustRecordDecl :: String -> String
-adjustRecordDecl text = text
 
 
 type AdjustIndentState =
@@ -386,8 +408,6 @@ type AdjustIndentState =
 
 targetIndent :: Int
 targetIndent = 2
-
-
 closeToOpenPairs :: Map String String
 closeToOpenPairs = Map.empty
   # Map.insert "]" "["
@@ -396,12 +416,8 @@ closeToOpenPairs = Map.empty
 
 openSymbols :: Array String
 openSymbols = List.toUnfoldable $ Map.values closeToOpenPairs
-
-
 closeSymbols :: Array String
 closeSymbols = Set.toUnfoldable $ Map.keys closeToOpenPairs
-
-
 foldAdjustIndent :: AdjustIndentState -> String -> AdjustIndentState
 foldAdjustIndent state str =
   state
@@ -465,8 +481,6 @@ adjustIndent opts text = S.joinWith "\n" state.result
 
 adjustIndentDefault :: String -> String
 adjustIndentDefault = adjustIndent indentDefaultOptions
-
-
 format :: FormatRules -> String -> String
 format opts text = S.joinWith "" state.result
   where
@@ -477,8 +491,6 @@ format opts text = S.joinWith "" state.result
 
 formatDefault :: String -> String
 formatDefault = format defaultRules
-
-
 main :: Effect Unit
 main = do
   log $ "Top Level Format"
