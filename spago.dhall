@@ -4,7 +4,7 @@ You can edit this file as you like.
 -}
 { name = "my-project"
 , dependencies =
-  [ "console", "debug", "effect", "node-fs-aff", "psci-support", "spec" ]
+  [ "console", "debug", "effect", "node-fs-aff", "psci-support", "spec", "vscode" ]
 , packages = ./packages.dhall
 , sources = [ "src/**/*.purs", "test/**/*.purs" ]
 }

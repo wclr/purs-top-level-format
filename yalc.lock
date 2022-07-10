@@ -1,0 +1,9 @@
+{
+  "version": "v1",
+  "packages": {
+    "purescript-vscode": {
+      "signature": "796cc3a68b6ca8bc9ebae37444bfb0e8",
+      "file": true
+    }
+  }
+}
