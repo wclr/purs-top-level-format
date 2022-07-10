@@ -1,5 +1,8 @@
 module TopLevel
-  (formatDefault, adjustIndentDefault, defaultRules, format, main
+  ( formatDefault
+  , defaultRules
+  , format
+  , main
   ) where
 
 
@@ -97,12 +100,14 @@ startsWithAny opts str =
 
 trimEnd :: String -> String
 trimEnd = R.replace re ""
-  where re = unsafeRegex "\\s+$" noFlags
+  where
+  re = unsafeRegex "\\s+$" noFlags
 
 
 typeKeywords :: Array String
 typeKeywords =
-  flip append " " <$>
+  flip append " "
+    <$>
       [ "data"
       , "newtype"
       , "type"
@@ -112,7 +117,8 @@ typeKeywords =
 
 declKeywords :: Array String
 declKeywords =
-  flip append " " <$>
+  flip append " "
+    <$>
       [ "derive"
       , "instance"
       , "infixr"
@@ -235,14 +241,15 @@ hasMultiLineQuotes =
 
 spaces :: Int -> String
 spaces n = S.joinWith "" $ replicate n " "
+
+
 getNextNonMultiCommentLine :: FormatState -> Maybe CodeLine
 getNextNonMultiCommentLine { codeLines, index } =
-  join $ commentEnd <#> (\found -> Array.index codeLines (found.index + 1) )
+  join $ commentEnd <#> (\found -> Array.index codeLines (found.index + 1))
   where
   commentEnd =
     (flip findWithIndex)
-      codeLines
-        \i codeL -> i > index && (isMultiCommentEnd codeL)
+      codeLines \i codeL -> i > index && (isMultiCommentEnd codeL)
 
 
 getNextNonCommentLine :: FormatState -> Maybe CodeLine
@@ -251,8 +258,7 @@ getNextNonCommentLine { codeLines, index } =
   where
   res =
     (flip findWithIndex)
-      codeLines
-        \i codeL -> i > index && not (isSingleComment codeL)
+      codeLines \i codeL -> i > index && not (isSingleComment codeL)
 
 
 isNextNonCommentLineEmpty :: FormatState -> Boolean
@@ -269,18 +275,6 @@ isNextNonMultiCommentLineEmpty st =
     Nothing -> true
     Just Empty -> true
     _ -> false
-
-
-getNextLine :: FormatState -> Maybe CodeLine
-getNextLine { codeLines, index } =
-  Array.index codeLines (index + 1)
-
-
-
--- isNextLineEmpty :: FormatState -> Boolean
--- isNextLineEmpty state = case getNextLine state of
---   Just codeL -> codeL == Empty
---   Nothing -> true
 
 
 foldFormat :: FormatState -> CodeLine -> FormatState
@@ -311,22 +305,21 @@ foldFormat state codeL =
           ImportOpen _ ->
             if state.hasImportOpen then 0 else 2
 
-          Import _ -> if state.hasImport || isPrevCommentEnd unit
-            then 0
-            else if state.hasImportOpen then 1 else 2
+          Import _ ->
+            if state.hasImport || isPrevCommentEnd unit then
+              0
+            else if state.hasImportOpen then 1
+            else 2
 
           MultiLineCommentSingle _ ->
             if isPrevEmpty then 0 else commentAdd
 
           SingleLineComment _
             | isPrevOneLine -> 0
-
             -- for orphan comments line force 3 lines above
             | (blanks > 0 && isNextNonCommentLineEmpty state) -> 3
-
             -- allow close comments without spacing
             | (blanks == 0 && isNextNonCommentLineEmpty state) -> 0
-
             | otherwise -> commentAdd
 
           MultiLineCommentStart _
@@ -342,10 +335,11 @@ foldFormat state codeL =
             if isPrevOneLine || isPrevCommentEnd unit then 0 else 2
 
           Fun _ ->
-            if sameId
-              -- allow squash one line value decl (e.g., constants)
-              || (blanks == 0 && isFun prevLine && not isFunTypeDecl codeL)
-              || (isPrevCommentEnd unit && blanks == 0) then
+            if
+              sameId
+                -- allow squash one line value decl (e.g., constants)
+                || (blanks == 0 && isFun prevLine && not isFunTypeDecl codeL)
+                || (isPrevCommentEnd unit && blanks == 0) then
               0
             else
               2
@@ -357,130 +351,41 @@ foldFormat state codeL =
           _ -> 0
     in
       state
-        { result =
-          state.result <> (replicate addBefore "\n") <> [ str <> "\n" ]
+        { result = state.result <> (replicate addBefore "\n") <> [ str <> "\n" ]
         , index = nextIndex
         , blanks = 0
-        , nonTops = if
-            codeL == NonTop str then state.nonTops + 1 else 0
+        , nonTops =
+            if codeL == NonTop str then
+              state.nonTops + 1
+            else
+              0
         , prevLine = codeL
         , prevTopIdentifier = fromMaybe state.prevTopIdentifier topId
         , hasImportOpen = state.hasImportOpen || codeL == ImportOpen str
         , hasImport = state.hasImport || codeL == Import str
-        , isCommented = case codeL of
-            MultiLineCommentStart _ -> true
-            MultiLineCommentEnd _ -> false
-            _ -> state.isCommented
+        , isCommented =
+            case codeL of
+              MultiLineCommentStart _ -> true
+              MultiLineCommentEnd _ -> false
+              _ -> state.isCommented
         , isMultiLineStr =
-          if state.isCommented then
-            state.isMultiLineStr
-          else if hasMultiLineQuotes str then
-            not state.isMultiLineStr
-          else
-            state.isMultiLineStr
+            if state.isCommented then
+              state.isMultiLineStr
+            else if hasMultiLineQuotes str then
+              not state.isMultiLineStr
+            else
+              state.isMultiLineStr
         }
-    where
-      nextIndex = state.index + 1
-      str = getCodeLineStr codeL
-      blanks = state.blanks
-      --codeL = getCodeLine str
-
-
-
--- INDENTATION ADJUSTMENT (NOT IMPLEMENTED)
-
-
-type IndentOptions
-  = {}
-
-
-indentDefaultOptions :: IndentOptions
-indentDefaultOptions = {}
-
-
-type AdjustIndentState =
-  { result :: Array String
-  , prevOrgIndent :: Int
-  , prevResultIndent :: Int
-  , bracketStack :: Array { indent :: Int, resultIndent :: Int }
-  }
-
-
-targetIndent :: Int
-targetIndent = 2
-closeToOpenPairs :: Map String String
-closeToOpenPairs = Map.empty
-  # Map.insert "]" "["
-  # Map.insert "}" "{"
-
-
-openSymbols :: Array String
-openSymbols = List.toUnfoldable $ Map.values closeToOpenPairs
-closeSymbols :: Array String
-closeSymbols = Set.toUnfoldable $ Map.keys closeToOpenPairs
-foldAdjustIndent :: AdjustIndentState -> String -> AdjustIndentState
-foldAdjustIndent state str =
-  state
-    { result = state.result <> [spaces resultIndent <> strWithoutIndent]
-    , prevOrgIndent = indent
-    , prevResultIndent = resultIndent
-    , bracketStack =
-      if isOpenBracket then
-        state.bracketStack <> [ { indent, resultIndent } ]
-      else case stack of
-        Nothing -> state.bracketStack
-        Just { init } -> init
-    }
   where
-  indent = countPrefix (eq ' ') str
-  strWithoutIndent = S.drop indent str
-
-  isOpenBracket = strWithoutIndent # startsWith "["
-  isCloseBracket = strWithoutIndent # startsWith "]"
-
-  stack = if isCloseBracket
-    then unsnoc state.bracketStack
-    else Nothing
-
-  prevOrgIndentDiff = indent - state.prevOrgIndent
-  prevOrgNoDiff = prevOrgIndentDiff == 0
-
-  prevResultIndentDiff = indent - state.prevResultIndent
-
-  resultIndent =
-    case stack of
-      Just { last } -> last.resultIndent
-      Nothing ->
-        if prevResultIndentDiff > targetIndent
-        then state.prevResultIndent + targetIndent
-        else
-          if prevOrgNoDiff
-          then state.prevResultIndent
-          else indent
-
-
-initAdjustState :: AdjustIndentState
-initAdjustState =
-  { result: []
-  , prevOrgIndent: 0
-  , prevResultIndent: 0
-  , bracketStack: []
-  }
+  nextIndex = state.index + 1
+  str = getCodeLineStr codeL
+  blanks = state.blanks
 
 
 
 -- API
 
 
-adjustIndent :: IndentOptions -> String -> String
-adjustIndent opts text = S.joinWith "\n" state.result
-  where
-  lines = trimEnd <$> S.split (Pattern "\n") text
-  state = foldl foldAdjustIndent initAdjustState lines
-
-
-adjustIndentDefault :: String -> String
-adjustIndentDefault = adjustIndent indentDefaultOptions
 format :: FormatRules -> String -> String
 format opts text = S.joinWith "" state.result
   where
@@ -491,6 +396,8 @@ format opts text = S.joinWith "" state.result
 
 formatDefault :: String -> String
 formatDefault = format defaultRules
+
+
 main :: Effect Unit
 main = do
   log $ "Top Level Format"

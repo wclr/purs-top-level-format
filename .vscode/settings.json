@@ -3,7 +3,9 @@
   //   "extensions": [".purs"]
   // },
   "purescript.addNpmPath": true,
-  "purescript.buildCommand": "spago build --purs-args --json-errors",
+  "purescript.formatter": "purs-tidy",
+  "purescript.topLevelFormat.formatter": "tidy",
+  // "purescript.buildCommand": "spago build --purs-args --json-errors",
   "purescript.censorWarnings": [
     // "ImplicitImport",
     //"UnusedImport",
