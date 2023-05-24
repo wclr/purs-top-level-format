@@ -8,18 +8,13 @@ module TopLevel
 
 import Prelude
 
-import Data.Array (any, foldl, length, replicate, take, unsnoc)
+import Data.Array (any, foldl, length, replicate, take)
 import Data.Array as Array
 import Data.FoldableWithIndex (findWithIndex)
 import Data.Int (even)
-import Data.List as List
-import Data.Map (Map)
-import Data.Map as Map
 import Data.Maybe (Maybe(..), fromMaybe, isJust)
-import Data.Set as Set
 import Data.String (Pattern(..), split, stripPrefix, stripSuffix)
 import Data.String as S
-import Data.String.CodeUnits (countPrefix)
 import Data.String.Regex as R
 import Data.String.Regex.Flags (noFlags)
 import Data.String.Regex.Unsafe (unsafeRegex)
@@ -239,10 +234,6 @@ hasMultiLineQuotes =
   even <<< length <<< (split $ Pattern "\"\"\"")
 
 
-spaces :: Int -> String
-spaces n = S.joinWith "" $ replicate n " "
-
-
 getNextNonMultiCommentLine :: FormatState -> Maybe CodeLine
 getNextNonMultiCommentLine { codeLines, index } =
   join $ commentEnd <#> (\found -> Array.index codeLines (found.index + 1))
@@ -277,8 +268,8 @@ isNextNonMultiCommentLineEmpty st =
     _ -> false
 
 
-foldFormat :: FormatState -> CodeLine -> FormatState
-foldFormat state codeL =
+foldFormat :: FormatRules -> FormatState -> CodeLine -> FormatState
+foldFormat opts state codeL =
   if codeL == Empty then
     state { blanks = state.blanks + 1, index = nextIndex }
   else
@@ -317,14 +308,15 @@ foldFormat state codeL =
           SingleLineComment _
             | isPrevOneLine -> 0
             -- for orphan comments line force 3 lines above
-            | (blanks > 0 && isNextNonCommentLineEmpty state) -> 3
+            | (blanks > 0 && isNextNonCommentLineEmpty state) -> opts.linesBeforeSingleComment
             -- allow close comments without spacing
             | (blanks == 0 && isNextNonCommentLineEmpty state) -> 0
             | otherwise -> commentAdd
 
           MultiLineCommentStart _
             | isPrevEmpty -> 0
-            | (blanks > 0 && isNextNonMultiCommentLineEmpty state) -> 3
+            -- allow three lines
+            | (blanks > 0 && isNextNonMultiCommentLineEmpty state) -> 2
             -- | isPrevImport -> state.blanks
             | otherwise -> 2
 
@@ -382,7 +374,6 @@ foldFormat state codeL =
   blanks = state.blanks
 
 
-
 -- API
 
 
@@ -391,7 +382,7 @@ format opts text = S.joinWith "" state.result
   where
   lines = trimEnd <$> S.split (Pattern "\n") text
   codeLines = lines <#> getCodeLine
-  state = foldl foldFormat (initState codeLines) codeLines
+  state = foldl (foldFormat opts) (initState codeLines) codeLines
 
 
 formatDefault :: String -> String

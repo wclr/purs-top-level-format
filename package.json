@@ -4,9 +4,6 @@
   "description": "",
   "main": "index.js",
   "files": [
-    "src",
-    "*.dhall",
-    "output/*/*.js",
     "index.js",
     "bin.js"
   ],
@@ -17,7 +14,7 @@
     "dev": "pnpm dev-format && pnpm dev-vscode",
     "dev-format": "echo module.exports = require('./output/TopLevel') > index.js",
     "dev-vscode": "echo module.exports = require(\"../output/Extension\") > output.js",
-    "bundle": "spago bundle-app --m TopLevel --to index.js",
+    "bundle": "spago bundle-module -m TopLevel --to index.js",
     "test": "spago run -m Test.Main"
   },
   "author": "wclr",
